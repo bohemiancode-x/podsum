@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "module": "commonjs", // Required for ts-jest
+    "moduleResolution": "node" // Override bundler resolution for jest
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "jest.setup.js", // Include Jest setup file
+    "__mocks__/**/*.js" // Include mocks
+  ],
+  "exclude": [
+    "node_modules",
+    ".next",
+    "cypress"
+  ]
+}

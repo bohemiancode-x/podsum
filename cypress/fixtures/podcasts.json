@@ -1,0 +1,20 @@
+{
+  "mockPodcast": {
+    "id": "test-podcast-123",
+    "title": "Test Podcast Episode",
+    "description": "This is a test podcast episode for E2E testing",
+    "audio": "https://example.com/test-audio.mp3",
+    "thumbnail": "https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=400",
+    "podcast": {
+      "title": "Test Podcast Show",
+      "publisher": "Test Publisher"
+    },
+    "audio_length_sec": 1800,
+    "pub_date_ms": 1671234567000
+  },
+  "searchQueries": {
+    "technology": "technology",
+    "business": "business",
+    "startup": "startup"
+  }
+}

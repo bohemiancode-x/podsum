@@ -69,7 +69,7 @@ export interface APIResponse<T> {
 }
 
 class ListenNotesService {
-  private baseURL = 'https://listen-api-test.listennotes.com/api/v2';
+  private baseURL = process.env.LISTENNOTES_API_URL || 'https://listen-api.listennotes.com/api/v2';
   private apiKey: string;
 
   constructor() {

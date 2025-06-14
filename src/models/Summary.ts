@@ -42,7 +42,7 @@ export class SummaryModel {
   static async findAll(db: Db): Promise<SummaryDocument[]> {
     console.log('Finding all summaries');
     const collection = db.collection<SummaryDocument>('summaries');
-    const summaries = await collection.find({}).toArray();
+    const summaries = await collection.find({}).sort({ createdAt: -1 }).toArray();
     console.log('Found summaries count:', summaries.length);
     return summaries;
   }

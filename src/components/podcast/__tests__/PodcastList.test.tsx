@@ -3,6 +3,8 @@ import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { PodcastList } from '../PodcastList';
 import { Podcast, Summary } from '@/types';
+import { useSummaryStore } from '@/store/summaryStore';
+
 
 // Mock components
 jest.mock('../PodcastCard', () => ({
@@ -22,6 +24,9 @@ jest.mock('../SearchAndFilter', () => ({
 jest.mock('@/components/ErrorBoundary', () => ({
   LoadingGrid: () => <div data-testid="loading-grid">Loading...</div>,
 }));
+
+// Mock the summary store
+jest.mock('@/store/summaryStore');
 
 const mockPodcasts: Podcast[] = [
   {
@@ -49,6 +54,7 @@ const mockPodcasts: Podcast[] = [
 const mockSummaries: Record<string, Summary> = {
   'podcast-1': {
     id: 'summary-1',
+    length: 'short',
     podcastId: 'podcast-1',
     content: 'Tech summary',
     format: 'paragraph',
@@ -61,12 +67,19 @@ const mockSummaries: Record<string, Summary> = {
 describe('PodcastList Component', () => {
   const defaultProps = {
     podcasts: mockPodcasts,
-    savedSummaries: mockSummaries,
     loadingPodcastId: null,
     loading: false,
     isSearching: false,
     onSearch: jest.fn(),
   };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (useSummaryStore as unknown as jest.Mock).mockReturnValue({
+      summaries: mockSummaries,
+      isLoadingSummaries: false,
+    });
+  });
 
   it('renders without crashing', () => {
     render(<PodcastList {...defaultProps} />);
@@ -99,7 +112,7 @@ describe('PodcastList Component', () => {
 
   it('shows empty state when no podcasts', () => {
     render(<PodcastList {...defaultProps} podcasts={[]} />);
-    expect(screen.getByText(/No saved summaries yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/No podcasts found matching your search/i)).toBeInTheDocument();
   });
 
   it('filters podcasts by search query', () => {
@@ -116,5 +129,21 @@ describe('PodcastList Component', () => {
     // Should show both podcasts when no filter is applied
     expect(screen.getByTestId('podcast-card-podcast-1')).toBeInTheDocument();
     expect(screen.getByTestId('podcast-card-podcast-2')).toBeInTheDocument();
+  });
+
+  it('correctly uses isLoadingSummaries from store', () => {
+    // Test that the store value is being used correctly
+    (useSummaryStore as unknown as jest.Mock).mockReturnValue({
+      summaries: mockSummaries,
+      isLoadingSummaries: true,
+    });
+
+    render(<PodcastList {...defaultProps} />);
+    
+    // The component should render normally since this test just ensures the store is connected
+    expect(screen.getByTestId('podcast-list')).toBeInTheDocument();
+    
+    // Verify the store was called
+    expect(useSummaryStore).toHaveBeenCalled();
   });
 });

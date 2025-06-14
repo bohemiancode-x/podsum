@@ -8,9 +8,6 @@ import { Button } from '@/components/ui/button';
 interface SearchAndFilterProps {
   searchQuery: string;
   setSearchQuery: (query: string) => void;
-  selectedCategory: string;
-  setSelectedCategory: (category: string) => void;
-  categories: string[];
   isSearching?: boolean;
   onSearch: (query: string) => void;
 }
@@ -18,9 +15,6 @@ interface SearchAndFilterProps {
 export const SearchAndFilter = ({
   searchQuery,
   setSearchQuery,
-  selectedCategory,
-  setSelectedCategory,
-  categories,
   isSearching = false,
   onSearch
 }: SearchAndFilterProps) => {
@@ -69,18 +63,6 @@ export const SearchAndFilter = ({
           )}
         </Button>
       </div>
-      <select 
-        value={selectedCategory} 
-        onChange={(e) => setSelectedCategory(e.target.value)}
-        className="h-9 hidden rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-      >
-        <option value="all">All Categories</option>
-        {categories.map((category) => (
-          <option key={category} value={category}>
-            {category}
-          </option>
-        ))}
-      </select>
     </div>
   );
 };

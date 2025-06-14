@@ -61,6 +61,8 @@ const mockPodcast: Podcast = {
 
 const mockSummary: Summary = {
   id: 'test-summary',
+  length: 'short',
+  podcast: mockPodcast,
   podcastId: 'test-podcast',
   content: 'This is a test summary content.',
   format: 'paragraph',

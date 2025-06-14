@@ -34,14 +34,60 @@ class SummarizationService {
         progress: 10
       });
 
-      const contentAnalysis = geminiService.assessContentQuality(podcast.description);
+      const contentAnalysis = geminiService.assessContentQuality(
+        podcast.description,
+        podcast.duration || undefined
+      );
       
-      // Stage 2: Choose processing strategy
-      if (!contentAnalysis.shouldUseAudio) {
-        // High-quality description - direct summarization
+      console.log(`Content quality assessment for "${podcast.title}": Score ${contentAnalysis.score}, Reason: ${contentAnalysis.reason}`);
+      
+      // Stage 2: Choose processing strategy (more conservative approach)
+      if (!contentAnalysis.shouldUseAudio && contentAnalysis.score >= 75) {
+        // Only use description for very high-quality content
+        // First check for URLs in high-quality descriptions
+        const urls = podcast.description.match(/(https?:\/\/[^\s]+)/g) || [];
+        const contentUrls = urls.filter(url => 
+          !url.includes('patreon') && !url.includes('subscribe') && 
+          !url.includes('donate') && !url.includes('spotify.com/podcast') &&
+          !url.includes('apple.com/podcast')
+        );
+        
+        if (contentUrls.length > 0) {
+          try {
+            onProgress?.({
+              stage: 'processing',
+              message: 'Fetching additional content from article URL...',
+              progress: 20
+            });
+
+            const urlContent = await this.fetchUrlContent(contentUrls[0]!);
+            if (urlContent) {
+              const result = await geminiService.summarizeText(
+                urlContent,
+                options,
+                podcast.title
+              );
+
+              onProgress?.({
+                stage: 'complete',
+                message: 'Summary generated from article content',
+                progress: 100
+              });
+
+              return {
+                success: true,
+                result: { ...result, source: 'url' as const }
+              };
+            }
+          } catch (error) {
+            console.warn('Failed to fetch URL content, falling back to description:', error);
+          }
+        }
+        
+        // Use high-quality description
         return await this.summarizeFromDescription(podcast, options, onProgress);
       } else {
-        // Low-quality description - try audio transcription with fallback
+        // Use audio-first strategy for everything else
         return await this.summarizeWithAudioFallback(podcast, options, onProgress);
       }
     } catch (error) {
@@ -58,6 +104,105 @@ class SummarizationService {
         error: error instanceof Error ? error.message : 'Unknown error occurred',
         canRetry: true
       };
+    }
+  }
+
+  /**
+   * Fetch content from a URL with better parsing
+   */
+  private async fetchUrlContent(url: string): Promise<string | null> {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; PodSumBot/1.0)'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch URL: ${response.status} ${response.statusText}`);
+      }
+      
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('text/html') && !contentType.includes('text/plain')) {
+        return null; // Skip non-text content
+      }
+      
+      const text = await response.text();
+      
+      // Enhanced content extraction
+      let content = text
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') // Remove scripts
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')   // Remove styles
+        .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')       // Remove navigation
+        .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '') // Remove headers
+        .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '') // Remove footers
+        .replace(/<aside[^>]*>[\s\S]*?<\/aside>/gi, '')   // Remove sidebars
+        .replace(/<[^>]*>/g, ' ')                         // Remove remaining HTML tags
+        .replace(/\s+/g, ' ')                             // Normalize whitespace
+        .trim();
+      
+      // Filter out common boilerplate text
+      const boilerplatePatterns = [
+        /subscribe\s+to\s+our\s+newsletter/gi,
+        /follow\s+us\s+on/gi,
+        /all\s+rights\s+reserved/gi,
+        /copyright\s+\d{4}/gi,
+        /privacy\s+policy/gi,
+        /terms\s+of\s+service/gi,
+        /cookie\s+policy/gi,
+        /advertisement/gi,
+      ];
+      
+      boilerplatePatterns.forEach(pattern => {
+        content = content.replace(pattern, ' ');
+      });
+      
+      content = content.replace(/\s+/g, ' ').trim();
+      
+      // Only return if content is substantial and meaningful
+      const wordCount = content.split(/\s+/).filter(word => word.length > 2).length;
+      return (content.length > 500 && wordCount > 50) ? content : null;
+    } catch (error) {
+      console.error('URL content fetch error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Summarize content from a URL
+   */
+  private async summarizeFromUrlContent(
+    urlContent: string,
+    podcast: Podcast,
+    options: SummarizationOptions,
+    onProgress?: (progress: SummarizationProgress) => void
+  ): Promise<SummarizationResponse> {
+    try {
+      onProgress?.({
+        stage: 'processing',
+        message: 'Processing content from URL...',
+        progress: 40
+      });
+
+      const result = await geminiService.summarizeText(
+        urlContent,
+        options,
+        podcast.title
+      );
+
+      onProgress?.({
+        stage: 'complete',
+        message: 'Summary generated from URL content',
+        progress: 100
+      });
+
+      return {
+        success: true,
+        result: { ...result, source: 'url' as const }
+      };
+    } catch (error) {
+      console.error('URL content summarization failed:', error);
+      throw error;
     }
   }
 
@@ -90,7 +235,10 @@ class SummarizationService {
         const result = await geminiService.summarizeText(
           podcast.description,
           options,
-          podcast.title
+          podcast.title,
+          podcast.category,
+          podcast.host,
+          podcast.duration
         );
 
         clearInterval(progressInterval);
@@ -103,7 +251,7 @@ class SummarizationService {
 
         return {
           success: true,
-          result
+          result: { ...result, source: 'description' as const }
         };
       } catch (apiError) {
         clearInterval(progressInterval);
@@ -130,7 +278,13 @@ class SummarizationService {
   ): Promise<SummarizationResponse> {
     try {
       // Check if we should prioritize audio processing
-      const qualityAssessment = geminiService.assessContentQuality(podcast.description);
+      const qualityAssessment = geminiService.assessContentQuality(
+        podcast.description,
+        podcast.duration
+      );
+      
+      // Extract URLs from description for potential fallback
+      const urls = podcast.description.match(/(https?:\/\/[^\s]+)/g) || [];
       
       if (qualityAssessment.shouldUseAudio && podcast.audioUrl) {
         // Skip description processing - go directly to audio for better quality
@@ -157,9 +311,26 @@ class SummarizationService {
             success: true,
             result: audioResult
           };
-        } catch {
-          // Audio processing failed, falling back to description...
-          // Continue to description fallback below
+        } catch (error) {
+          console.error('Audio processing failed:', error);
+          // Audio processing failed, try URL content if available
+          if (urls.length > 0) {
+            try {
+              onProgress?.({
+                stage: 'processing',
+                message: 'Audio processing failed. Trying URL content...',
+                progress: 40
+              });
+
+              const urlContent = await this.fetchUrlContent(urls[0]!);
+              if (urlContent) {
+                return await this.summarizeFromUrlContent(urlContent, podcast, options, onProgress);
+              }
+            } catch (urlError) {
+              console.error('URL content processing failed:', urlError);
+              // Continue to description fallback below
+            }
+          }
         }
       }
 
@@ -201,93 +372,18 @@ class SummarizationService {
             result: { ...descriptionResult, source: 'fallback' as const }
           };
         }
-      } catch {
+      } catch (error) {
         clearInterval(descProgressInterval);
-        // Description processing failed, trying audio...
+        console.error('Description processing failed:', error);
       }
 
-      // Description failed or low confidence - try audio transcription
-      onProgress?.({
-        stage: 'transcribing',
-        message: 'Transcribing audio content...',
-        progress: 40,
-        estimatedTimeMs: 35000
-      });
-
-      try {
-        // Attempt audio transcription
-        const audioUrl = podcast.audioUrl;
-        if (!audioUrl) {
-          throw new Error('No audio URL available for transcription');
-        }
-
-        const audioResult = await geminiService.transcribeAndSummarize(
-          audioUrl,
-          options
-        );
-
-        onProgress?.({
-          stage: 'complete',
-          message: 'Summary generated from audio transcription',
-          progress: 100
-        });
-
-        return {
-          success: true,
-          result: audioResult
-        };
-      } catch (audioError) {
-        console.error('Audio transcription failed:', audioError);
-
-        // Both methods failed - return description fallback with warning
-        onProgress?.({
-          stage: 'processing',
-          message: 'Using available description as fallback...',
-          progress: 80
-        });
-
-        // Add progress simulation for final fallback
-        const fallbackProgressInterval = setInterval(() => {
-          onProgress?.({
-            stage: 'processing',
-            message: 'Using available description as fallback...',
-            progress: 80 + Math.random() * 15, // Progress between 80-95%
-          });
-        }, 500);
-
-        try {
-          const fallbackResult = await geminiService.summarizeText(
-            podcast.description.length > 50 
-              ? podcast.description 
-              : `Episode: ${podcast.title} by ${podcast.host}. Duration: ${podcast.duration}. Limited description available.`,
-            options,
-            podcast.title
-          );
-
-          clearInterval(fallbackProgressInterval);
-
-          onProgress?.({
-            stage: 'complete',
-            message: 'Summary generated using available information',
-            progress: 100
-          });
-
-          return {
-            success: true,
-            result: { ...fallbackResult, source: 'fallback' as const },
-            fallbackUsed: true
-          };
-        } catch (fallbackError) {
-          clearInterval(fallbackProgressInterval);
-          throw fallbackError;
-        }
-      }
+      // If we get here, both audio and description failed
+      throw new Error('Failed to generate summary from both audio and description');
     } catch (error) {
-      console.error('Audio fallback strategy failed:', error);
-      
+      console.error('Summarization failed:', error);
       return {
         success: false,
-        error: 'All summarization methods failed',
+        error: error instanceof Error ? error.message : 'Failed to generate summary',
         canRetry: true
       };
     }
@@ -300,21 +396,31 @@ class SummarizationService {
     estimatedMs: number;
     strategy: 'description' | 'audio' | 'fallback';
   } {
-    const contentAnalysis = geminiService.assessContentQuality(podcast.description);
+    const contentAnalysis = geminiService.assessContentQuality(
+      podcast.description, 
+      podcast.duration
+    );
     
-    if (!contentAnalysis.shouldUseAudio) {
+    if (!contentAnalysis.shouldUseAudio && contentAnalysis.score >= 75) {
+      // High-quality description processing
+      const urls = podcast.description.match(/(https?:\/\/[^\s]+)/g) || [];
+      const hasContentUrls = urls.some(url => 
+        !url.includes('patreon') && !url.includes('subscribe') && 
+        !url.includes('donate') && !url.includes('spotify.com/podcast')
+      );
+      
       return {
-        estimatedMs: 5000, // 5 seconds for description processing
+        estimatedMs: hasContentUrls ? 8000 : 5000, // 8s for URL + description, 5s for description only
         strategy: 'description'
       };
-    } else if (podcast.description.length > 100) {
+    } else if (podcast.description.length > 200) {
       return {
-        estimatedMs: 35000, // 35 seconds for audio + fallback
+        estimatedMs: 40000, // 40 seconds for audio + potential fallbacks
         strategy: 'fallback'
       };
     } else {
       return {
-        estimatedMs: 45000, // 45 seconds for full audio processing
+        estimatedMs: 50000, // 50 seconds for full audio processing with minimal description
         strategy: 'audio'
       };
     }

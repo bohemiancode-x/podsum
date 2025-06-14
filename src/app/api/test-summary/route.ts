@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { geminiService } from '@/services/geminiService';
+import { geminiService, SummaryFormat, SummaryLength } from '@/services/geminiService';
 import { summarizationService } from '@/services/summarizationService';
 
 const testPodcast = {
@@ -16,6 +16,8 @@ const testPodcast = {
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const test = searchParams.get('test') || 'quality';
+  const format = searchParams.get('format') as SummaryFormat || 'paragraph';
+  const length = searchParams.get('length') as SummaryLength || 'medium';
 
   try {
     if (test === 'quality') {
@@ -32,11 +34,14 @@ export async function GET(request: NextRequest) {
     }
     
     if (test === 'summary') {
-      // Test text summarization
+      // Test text summarization with specified format and length
       const result = await geminiService.summarizeText(
         testPodcast.description,
-        { format: 'paragraph', length: 'medium' },
-        testPodcast.title
+        { format, length },
+        testPodcast.title,
+        testPodcast.category,
+        testPodcast.host,
+        testPodcast.duration
       );
       
       return NextResponse.json({
@@ -47,9 +52,14 @@ export async function GET(request: NextRequest) {
           source: result.source,
           processingTimeMs: result.processingTimeMs,
           confidence: result.confidence,
-          summaryLength: result.summary.length
+          summaryLength: result.summary.length,
+          format,
+          length
         },
-        podcastTitle: testPodcast.title
+        podcastTitle: testPodcast.title,
+        podcastCategory: testPodcast.category,
+        podcastHost: testPodcast.host,
+        podcastDuration: testPodcast.duration
       });
     }
 
@@ -64,7 +74,7 @@ export async function GET(request: NextRequest) {
       
       const result = await summarizationService.summarizePodcast(
         testPodcast,
-        { format: 'paragraph', length: 'medium' },
+        { format, length },
         (progress) => {
           progressLog.push({
             stage: progress.stage,
@@ -72,7 +82,6 @@ export async function GET(request: NextRequest) {
             progress: progress.progress,
             timestamp: new Date().toISOString()
           });
-          // Progress update available
         }
       );
       
@@ -81,7 +90,9 @@ export async function GET(request: NextRequest) {
         test: 'Full Summarization Service',
         result,
         progressLog,
-        podcastTitle: testPodcast.title
+        podcastTitle: testPodcast.title,
+        format,
+        length
       });
     }
 

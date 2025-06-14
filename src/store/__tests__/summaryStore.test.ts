@@ -39,6 +39,7 @@ describe('Summary Store', () => {
     const { result } = renderHook(() => useSummaryStore());
     const summary: Summary = {
       id: 'test-id',
+      length: 'short',
       podcastId: 'test-podcast',
       content: 'Test summary',
       format: 'bullet-points',
@@ -64,6 +65,7 @@ describe('Summary Store', () => {
     const { result } = renderHook(() => useSummaryStore());
     const summary: Summary = {
       id: 'test-id',
+      length: 'short',
       podcastId: 'test-podcast',
       content: 'Test summary',
       format: 'bullet-points',
@@ -90,6 +92,7 @@ describe('Summary Store', () => {
     const { result } = renderHook(() => useSummaryStore());
     const summary: Summary = {
       id: 'test-id',
+      length: 'short',
       podcastId: 'test-podcast',
       content: 'Test summary',
       format: 'bullet-points',
@@ -119,17 +122,17 @@ describe('Summary Store', () => {
     });
 
     expect(result.current.isGenerating('test-podcast')).toBe(true);
-
+    
     act(() => {
       result.current.setGenerating('test-podcast', false);
     });
-
+    
     expect(result.current.isGenerating('test-podcast')).toBe(false);
   });
 
   it('should update search filters', () => {
     const { result } = renderHook(() => useSummaryStore());
-
+    
     act(() => {
       result.current.setSearchFilters({
         query: 'test',

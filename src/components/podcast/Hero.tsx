@@ -18,7 +18,7 @@ export const Hero = () => {
       </div>
       
       <div className="max-w-7xl mx-auto relative px-4 md:px-6">
-        <div className="grid gap-6 lg:grid-cols-[1fr_400px] lg:gap-12 xl:grid-cols-[1fr_500px]">
+        <div className="grid gap-6 lg:grid-cols-[1fr_300px] lg:gap-12 xl:grid-cols-[1fr_500px]">
           <div className="flex flex-col justify-center space-y-4">
             <div className="space-y-2">
               <div className="inline-flex items-center rounded-lg bg-muted/50 px-3 py-1 text-sm">
@@ -36,7 +36,7 @@ export const Hero = () => {
                 seconds. Save time and extract key insights.
               </p>
             </div>
-            <div className="flex flex-col gap-2 min-[400px]:flex-row">
+            <div className="hidden flex-col gap-2 min-[400px]:flex-row">
               <Button className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-8 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90">
                 Get Started
               </Button>
@@ -80,7 +80,7 @@ export const Hero = () => {
             </div>
           </div>
           
-          <div className="hidden md:flex items-center justify-center">
+          <div className="hidden xl:flex items-center justify-center">
             <div className="relative h-[450px] w-full overflow-hidden rounded-xl">
               <Image
                 src="https://images.unsplash.com/photo-1478737270239-2f02b77fc618?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3"

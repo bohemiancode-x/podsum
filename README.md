@@ -28,6 +28,10 @@ Create a `.env.local` file in the root directory with the following variables:
 ```env
 # ListenNotes API Configuration
 LISTENNOTES_API_KEY=your_listennotes_api_key_here
+LISTENNOTES_API_URL=https://listen-api.listennotes.com/api/v2 
+(You can use https://listen-api-test.listennotes.com/api/v2 if you dont have an api key. it returns test data)
+
+
 
 # Next.js Configuration
 NEXT_PUBLIC_APP_URL=http://localhost:3000
@@ -92,8 +96,8 @@ You can choose to use either MongoDB Atlas (cloud) or a local MongoDB instance:
    ```
 
 2. Install dependencies:
-   ```bash
-   npm install
+```bash
+npm install
    # or
    yarn install
    ```

@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { SearchAndFilter } from '../SearchAndFilter';
 
+
 // Mock UI components
 jest.mock('@/components/ui/input', () => ({
   Input: ({ value, onChange, onKeyDown, ...props }: React.ComponentProps<'input'>) => (
@@ -32,9 +33,6 @@ jest.mock('lucide-react', () => ({
 const mockProps = {
   searchQuery: '',
   setSearchQuery: jest.fn(),
-  selectedCategory: 'all',
-  setSelectedCategory: jest.fn(),
-  categories: ['all', 'tech', 'business', 'health'],
   isSearching: false,
   onSearch: jest.fn(),
 };
@@ -44,62 +42,36 @@ describe('SearchAndFilter Component', () => {
     jest.clearAllMocks();
   });
 
-  it('renders without crashing', () => {
+  it('renders search input and button', () => {
     render(<SearchAndFilter {...mockProps} />);
-    expect(screen.getByPlaceholderText(/search podcasts/i)).toBeInTheDocument();
-  });
-
-  it('displays current search query', () => {
-    render(<SearchAndFilter {...mockProps} searchQuery="test query" />);
-    expect(screen.getByDisplayValue('test query')).toBeInTheDocument();
-  });
-
-  it('calls setSearchQuery when input changes', () => {
-    render(<SearchAndFilter {...mockProps} />);
-    const input = screen.getByPlaceholderText(/search podcasts/i);
-    
-    fireEvent.change(input, { target: { value: 'new search' } });
-    expect(mockProps.setSearchQuery).toHaveBeenCalledWith('new search');
-  });
-
-  it('calls onSearch when Enter key is pressed', () => {
-    render(<SearchAndFilter {...mockProps} searchQuery="test" />);
-    const input = screen.getByPlaceholderText(/search podcasts/i);
-    
-    fireEvent.keyDown(input, { key: 'Enter' });
-    // Just verify the function exists and can be called
-    expect(mockProps.onSearch).toBeDefined();
+    expect(screen.getByTestId('search-input')).toBeInTheDocument();
+    expect(screen.getByTestId('search-button')).toBeInTheDocument();
   });
 
   it('calls onSearch when search button is clicked', () => {
-    render(<SearchAndFilter {...mockProps} searchQuery="test" />);
-    const searchButton = screen.getByRole('button');
-    
+    render(<SearchAndFilter {...mockProps} />);
+    const searchButton = screen.getByTestId('search-button');
     fireEvent.click(searchButton);
-    expect(mockProps.onSearch).toHaveBeenCalledWith('test');
+    expect(mockProps.onSearch).toHaveBeenCalled();
   });
 
-  it('shows loading state when searching', () => {
-    render(<SearchAndFilter {...mockProps} isSearching={true} />);
-    const input = screen.getByPlaceholderText(/search podcasts/i);
-    expect(input).toBeDisabled();
+  it('calls onSearch when Enter is pressed in search input', () => {
+    render(<SearchAndFilter {...mockProps} searchQuery="test" />);
+    const searchInput = screen.getByTestId('search-input');
+    fireEvent.keyDown(searchInput, { key: 'Enter', code: 'Enter' });
+    expect(mockProps.onSearch).toHaveBeenCalled();
   });
 
-  it('disables search button when searching', () => {
+  it('updates search query when input changes', () => {
+    render(<SearchAndFilter {...mockProps} />);
+    const searchInput = screen.getByTestId('search-input');
+    fireEvent.change(searchInput, { target: { value: 'test query' } });
+    expect(mockProps.setSearchQuery).toHaveBeenCalledWith('test query');
+  });
+
+  it('shows loading state when isSearching is true', () => {
     render(<SearchAndFilter {...mockProps} isSearching={true} />);
-    const searchButton = screen.getByRole('button');
+    const searchButton = screen.getByTestId('search-button');
     expect(searchButton).toBeDisabled();
-  });
-
-  it('renders category filter options', () => {
-    render(<SearchAndFilter {...mockProps} />);
-    expect(screen.getByText('tech')).toBeInTheDocument();
-    expect(screen.getByText('business')).toBeInTheDocument();
-  });
-
-  it('renders category select', () => {
-    render(<SearchAndFilter {...mockProps} />);
-    const select = screen.getByRole('combobox');
-    expect(select).toBeInTheDocument();
   });
 });

@@ -255,8 +255,8 @@ class PodcastAPI {
 
       const data = await response.json();
       
-      // Take the first 8 results since the search endpoint now returns transformed data
-      const podcasts = (data.results || []).slice(0, 8);
+      // Return all results instead of limiting to 8
+      const podcasts = data.results || [];
 
       return {
         data: podcasts,
@@ -280,6 +280,7 @@ export function scoreEpisodeQuality(episode: ListenNotesEpisode): number {
   const titleLength = (episode.title_original || '').length;
   const hasPublisher = Boolean(episode.podcast?.publisher_original);
   const audioLength = episode.audio_length_sec || 0;
+  const description = (episode.description_original || '').toLowerCase();
   
   let score = 0;
   
@@ -301,7 +302,38 @@ export function scoreEpisodeQuality(episode: ListenNotesEpisode): number {
   else if (audioLength >= 900 && audioLength <= 1800) score += 10; // 15-30 minutes
   else if (audioLength >= 600) score += 5; // 10+ minutes
   
-  return score;
+  // Basic content quality checks (simplified version of our main logic)
+  const hasLowQualityIndicators = [
+    'subscribe to our podcast',
+    'follow us on',
+    'patreon.com',
+    'support this podcast',
+    'episode notes',
+    'show notes'
+  ].some(indicator => description.includes(indicator));
+  
+  const hasHighQualityIndicators = [
+    'we discuss',
+    'we talk about',
+    'conversation with',
+    'interview with',
+    'guest explains',
+    'guest shares',
+    'personal experience',
+    'lessons learned',
+    'practical advice',
+    'real-world example'
+  ].some(indicator => description.includes(indicator));
+  
+  // Check for timestamps (likely table of contents)
+  const hasTimestamps = /\d+:\d+\s+[a-z]/i.test(episode.description_original || '');
+  
+  // Adjust score based on content quality
+  if (hasLowQualityIndicators) score -= 10;
+  if (hasHighQualityIndicators) score += 10;
+  if (hasTimestamps && descLength < 1000) score -= 15; // Penalty for timestamp-heavy short descriptions
+  
+  return Math.max(0, score);
 }
 
 export const podcastAPI = new PodcastAPI();

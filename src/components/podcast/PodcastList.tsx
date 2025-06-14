@@ -5,6 +5,8 @@ import { PodcastCard } from './PodcastCard';
 import { SearchAndFilter } from './SearchAndFilter';
 import { LoadingGrid } from '@/components/ErrorBoundary';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Podcast } from '@/types';
 import { useSummaryStore } from '@/store/summaryStore';
 
@@ -24,12 +26,20 @@ export const PodcastList = ({
   onSearch
 }: PodcastListProps) => {
   // Convert podcasts to an array if it's an object, and type as Podcast[]
-  const podcastArray: Podcast[] = Array.isArray(podcasts)
-    ? podcasts
-    : (Object.values(podcasts || {}) as Podcast[]);
+  const podcastArray: Podcast[] = useMemo(() => {
+    const array = Array.isArray(podcasts)
+      ? podcasts
+      : (Object.values(podcasts || {}) as Podcast[]);
+    
+    return array;
+  }, [podcasts]);
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const { summaries: savedSummaries } = useSummaryStore();
+  const [allPodcastsPage, setAllPodcastsPage] = useState(1);
+  const [savedPodcastsPage, setSavedPodcastsPage] = useState(1);
+  const { summaries: savedSummaries, isLoadingSummaries } = useSummaryStore();
+
+  const PODCASTS_PER_PAGE = 9;
 
   // Memoize the podcast cards to prevent unnecessary re-renders
   const renderPodcastCard = useCallback((podcast: Podcast) => (
@@ -49,58 +59,122 @@ export const PodcastList = ({
     }
   };
 
-  // Extract unique categories
-  const categories = useMemo(() => {
-    if (!Array.isArray(podcastArray)) {
-      return [];
-    }
-    
-    return Array.from(new Set(
-      podcastArray
-        .filter(podcast => podcast && podcast.category) // Filter out invalid podcasts
-        .map(podcast => podcast.category)
-    )).sort();
-  }, [podcastArray]);
-
-  // Get all podcasts with summaries
+  // Get all podcasts with summaries (sorted newest first)
   const podcastsWithSummaries = useMemo(() => {
-    const withSummaries: Podcast[] = [];
+    const withSummaries: Array<{ podcast: Podcast; createdAt: string }> = [];
     const processedIds = new Set<string>();
     
-    // Add podcasts from current search results that have summaries
-    podcastArray.forEach(podcast => {
-      if (!podcast) return; // Skip if podcast is undefined
-      const hasSummary = Object.values(savedSummaries).some(summary => summary.podcastId === podcast.id);
-      if (hasSummary && !processedIds.has(podcast.id)) {
-        withSummaries.push(podcast);
-        processedIds.add(podcast.id);
+    // Get all unique podcasts with summaries from the savedSummaries
+    Object.values(savedSummaries).forEach(summary => {
+      if (summary.podcast && !processedIds.has(summary.podcast.id)) {
+        withSummaries.push({
+          podcast: summary.podcast,
+          createdAt: summary.createdAt
+        });
+        processedIds.add(summary.podcast.id);
       }
     });
     
-    return withSummaries;
-  }, [podcastArray, savedSummaries]);
-
-  // Filter podcasts based on search and category (local filtering only)
-  const filteredPodcasts = useMemo(() => {
-    // Safety check: ensure podcastArray is an array
-    if (!Array.isArray(podcastArray)) {
-      return [];
-    }
+    // Sort by creation date (newest first)
+    withSummaries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     
-    return podcastArray.filter(podcast => {
-      // Safety check: ensure podcast object exists
-      if (!podcast) return false;
-      
-      // Category filtering
-      const category = podcast.category || '';
-      const matchesCategory = selectedCategory === 'all' || category === selectedCategory;
-      
-      return matchesCategory;
-    });
-  }, [podcastArray, selectedCategory]);
+    // Return just the podcasts array
+    return withSummaries.map(item => item.podcast);
+  }, [savedSummaries]);
 
-  const renderPodcastGrid = useCallback((podcastList: Podcast[], showEmpty: boolean = true) => {
-    if (loading || isSearching) {
+  // Get unique podcast count with summaries
+  const uniquePodcastsWithSummaries = useMemo(() => {
+    const uniqueIds = new Set<string>();
+    Object.values(savedSummaries).forEach(summary => {
+      if (summary.podcast) {
+        uniqueIds.add(summary.podcast.id);
+      }
+    });
+    return uniqueIds.size;
+  }, [savedSummaries]);
+
+  // Pagination logic for all podcasts
+  const paginatedAllPodcasts = useMemo(() => {
+    const startIndex = (allPodcastsPage - 1) * PODCASTS_PER_PAGE;
+    const endIndex = startIndex + PODCASTS_PER_PAGE;
+    return podcastArray.slice(startIndex, endIndex);
+  }, [podcastArray, allPodcastsPage, PODCASTS_PER_PAGE]);
+
+  // Pagination logic for saved podcasts
+  const paginatedSavedPodcasts = useMemo(() => {
+    const startIndex = (savedPodcastsPage - 1) * PODCASTS_PER_PAGE;
+    const endIndex = startIndex + PODCASTS_PER_PAGE;
+    return podcastsWithSummaries.slice(startIndex, endIndex);
+  }, [podcastsWithSummaries, savedPodcastsPage, PODCASTS_PER_PAGE]);
+
+  // Calculate total pages
+  const totalAllPages = Math.ceil(podcastArray.length / PODCASTS_PER_PAGE);
+  const totalSavedPages = Math.ceil(podcastsWithSummaries.length / PODCASTS_PER_PAGE);
+
+  // Reset pagination when switching tabs or when search results change
+  const handleTabChange = useCallback((value: string) => {
+    if (value === 'all') {
+      setAllPodcastsPage(1);
+    } else if (value === 'saved') {
+      setSavedPodcastsPage(1);
+    }
+  }, []);
+
+  // Pagination controls component
+  const PaginationControls = ({ 
+    currentPage, 
+    totalPages, 
+    onPageChange 
+  }: { 
+    currentPage: number; 
+    totalPages: number; 
+    onPageChange: (page: number) => void; 
+  }) => {
+    if (totalPages <= 1) return null;
+
+    return (
+      <div className="flex justify-center items-center gap-2 mt-8">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="flex items-center gap-1"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Previous
+        </Button>
+        
+        <div className="flex items-center gap-1">
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+            <Button
+              key={page}
+              variant={page === currentPage ? "default" : "outline"}
+              size="sm"
+              onClick={() => onPageChange(page)}
+              className="min-w-[40px]"
+            >
+              {page}
+            </Button>
+          ))}
+        </div>
+        
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="flex items-center gap-1"
+        >
+          Next
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    );
+  };
+
+  const renderPodcastGrid = useCallback((podcastList: Podcast[], showEmpty: boolean = true, isLoadingData: boolean = false) => {
+    if (loading || isSearching || isLoadingData) {
       return <LoadingGrid count={6} className="mt-8" data-testid="loading-grid" />;
     }
 
@@ -126,13 +200,13 @@ export const PodcastList = ({
   return (
     <section className="max-w-7xl mx-auto py-12 px-4 md:px-6" data-testid="podcast-list">
       <div className="space-y-8">
-        <Tabs defaultValue="all" className="w-full">
+        <Tabs defaultValue="all" className="w-full" onValueChange={handleTabChange}>
           <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto">
             <TabsTrigger value="all" className="text-sm">
               All Podcasts ({podcastArray.length})
             </TabsTrigger>
             <TabsTrigger value="saved" className="text-sm">
-              Saved Summaries ({Object.keys(savedSummaries).length})
+              Saved Summaries ({uniquePodcastsWithSummaries})
             </TabsTrigger>
           </TabsList>
           
@@ -144,18 +218,21 @@ export const PodcastList = ({
                   Select an episode to summarize or view existing summaries
                 </p>
               </div>
-
+              
               <SearchAndFilter
                 searchQuery={searchQuery}
                 setSearchQuery={setSearchQuery}
-                selectedCategory={selectedCategory}
-                setSelectedCategory={setSelectedCategory}
-                categories={categories}
                 isSearching={isSearching}
                 onSearch={handleSearch}
               />
               
-              {renderPodcastGrid(filteredPodcasts)}
+              {renderPodcastGrid(paginatedAllPodcasts, true, false)}
+              
+              <PaginationControls
+                currentPage={allPodcastsPage}
+                totalPages={totalAllPages}
+                onPageChange={setAllPodcastsPage}
+              />
             </div>
           </TabsContent>
           
@@ -167,11 +244,17 @@ export const PodcastList = ({
                   Your previously generated podcast summaries
                 </p>
               </div>
-              {renderPodcastGrid(podcastsWithSummaries)}
+              {renderPodcastGrid(paginatedSavedPodcasts, true, isLoadingSummaries)}
+              
+              <PaginationControls
+                currentPage={savedPodcastsPage}
+                totalPages={totalSavedPages}
+                onPageChange={setSavedPodcastsPage}
+              />
             </div>
           </TabsContent>
         </Tabs>
-      </div>
+        </div>
     </section>
   );
 };

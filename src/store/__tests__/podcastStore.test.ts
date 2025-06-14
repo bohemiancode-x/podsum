@@ -151,6 +151,7 @@ describe('Podcast Store', () => {
     it('should add summary', () => {
       const testSummary: Summary = {
         id: 'summary-1',
+        length: 'short',
         podcastId: 'test-podcast',
         content: 'Test summary content',
         format: 'paragraph',
@@ -169,6 +170,7 @@ describe('Podcast Store', () => {
     it('should get summary', () => {
       const testSummary: Summary = {
         id: 'summary-1',
+        length: 'short',
         podcastId: 'test-podcast',
         content: 'Test summary content',
         format: 'paragraph',
@@ -188,6 +190,7 @@ describe('Podcast Store', () => {
     it('should remove summary', () => {
       const testSummary: Summary = {
         id: 'summary-1',
+        length: 'short',
         podcastId: 'test-podcast',
         content: 'Test summary content',
         format: 'paragraph',

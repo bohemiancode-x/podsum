@@ -24,7 +24,7 @@ export const PodcastCard = ({
   const showSummaryModal = openModalId === podcast.id;
 
   const DESCRIPTION_LIMIT = 150;
-  const displayDescription = truncateText(podcast.description, DESCRIPTION_LIMIT);
+  const displayDescription = podcast.description ? truncateText(podcast.description, DESCRIPTION_LIMIT) : '';
 
   const handleSummarizeClick = () => {
     setOpenModalId(podcast.id);

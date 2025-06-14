@@ -10,6 +10,7 @@ export interface SummaryState {
   
   // Loading states
   generatingSummaries: Set<string>;
+  isLoadingSummaries: boolean;
   
   // Error states
   summaryErrors: Record<string, string>;
@@ -48,10 +49,11 @@ const initialGeneratingSummaries = new Set<string>();
 
 export const useSummaryStore = create<SummaryState>()(
   devtools(
-    (set, get) => ({
-      summaries: {},
-      generatingSummaries: initialGeneratingSummaries,
-      summaryErrors: {},
+      (set, get) => ({
+        summaries: {},
+        generatingSummaries: initialGeneratingSummaries,
+        isLoadingSummaries: false,
+        summaryErrors: {},
       openModalId: null,
       setOpenModalId: (id) => set({ openModalId: id }),
       searchFilters: {
@@ -100,26 +102,26 @@ export const useSummaryStore = create<SummaryState>()(
           return null;
         }
       },
-      removeSummary: (podcastId) =>
-        set((state) => {
-          const { [podcastId]: removedSummary, ...restSummaries } = state.summaries;
-          const { [podcastId]: removedError, ...restErrors } = state.summaryErrors;
-          return { 
-            summaries: restSummaries,
-            summaryErrors: restErrors,
-          };
-        }),
-      setSummaryError: (podcastId, error) =>
-        set((state) => ({
-          summaryErrors: { ...state.summaryErrors, [podcastId]: error },
-        })),
-      clearSummaryError: (podcastId) =>
-        set((state) => {
-          const { [podcastId]: removed, ...rest } = state.summaryErrors;
-          return { summaryErrors: rest };
-        }),
+        removeSummary: (podcastId) =>
+          set((state) => {
+            const { [podcastId]: removedSummary, ...restSummaries } = state.summaries;
+            const { [podcastId]: removedError, ...restErrors } = state.summaryErrors;
+            return { 
+              summaries: restSummaries,
+              summaryErrors: restErrors,
+            };
+          }),
+        setSummaryError: (podcastId, error) =>
+          set((state) => ({
+            summaryErrors: { ...state.summaryErrors, [podcastId]: error },
+          })),
+        clearSummaryError: (podcastId) =>
+          set((state) => {
+            const { [podcastId]: removed, ...rest } = state.summaryErrors;
+            return { summaryErrors: rest };
+          }),
       setGenerating: (podcastId, isGenerating) =>
-        set((state) => {
+          set((state) => {
           const currentSet = state.generatingSummaries;
           const hasPodcast = currentSet.has(podcastId);
           
@@ -131,46 +133,56 @@ export const useSummaryStore = create<SummaryState>()(
           const newSet = new Set(currentSet);
           if (isGenerating) {
             newSet.add(podcastId);
-          } else {
+            } else {
             newSet.delete(podcastId);
-          }
+            }
           
           return {
             generatingSummaries: newSet
           };
-        }),
-      isGenerating: (podcastId) => {
-        const state = get();
-        return state.generatingSummaries.has(podcastId);
-      },
-      // Future MongoDB integration
-      syncWithDatabase: async () => {
-        // TODO: Implement when MongoDB is integrated
-      },
-      loadSummaryFromDB: async (podcastId) => {
-        // TODO: Implement MongoDB fetch
-        return null;
-      },
-      saveSummaryToDB: async (summary) => {
-        // TODO: Implement MongoDB save
+          }),
+        isGenerating: (podcastId) => {
+          const state = get();
+          return state.generatingSummaries.has(podcastId);
+        },
+        // Future MongoDB integration
+        syncWithDatabase: async () => {
+          // TODO: Implement when MongoDB is integrated
+        },
+        loadSummaryFromDB: async (podcastId) => {
+          // TODO: Implement MongoDB fetch
+          return null;
+        },
+        saveSummaryToDB: async (summary) => {
+          // TODO: Implement MongoDB save
       },
       getAllSummaries: async () => {
         try {
+          set({ isLoadingSummaries: true });
+          
           const response = await fetch('/api/summaries');
           if (!response.ok) {
             throw new Error('Failed to fetch summaries');
           }
           const summaries = await response.json();
+          
+          // Sort summaries by createdAt (newest first) as a fallback
+          const sortedSummaries = summaries.sort((a: Summary, b: Summary) => 
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+          
           // Update local state with fetched summaries
           set((state) => ({
-            summaries: summaries.reduce((acc: Record<string, Summary>, summary: Summary) => {
+            summaries: sortedSummaries.reduce((acc: Record<string, Summary>, summary: Summary) => {
               acc[summary.podcastId] = summary;
               return acc;
             }, {}),
+            isLoadingSummaries: false,
           }));
-          return summaries;
+          return sortedSummaries;
         } catch (error) {
           console.error('Error fetching summaries:', error);
+          set({ isLoadingSummaries: false });
           return [];
         }
       },
@@ -200,8 +212,8 @@ export const useSummaryStore = create<SummaryState>()(
             ...filters,
           },
         }));
-      },
-    }),
+        },
+      }),
     { name: 'summary-store' }
   )
 );

@@ -1,16 +1,16 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import clientPromise from '@/lib/mongodb';
 import { SummaryModel } from '@/models/Summary';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function GET(
-  request: Request,
-  context: { params: { id: string } }
+  request: NextRequest,
+  context: any // eslint-disable-line @typescript-eslint/no-explicit-any
 ) {
   try {
-    const params = await context.params;
     const client = await clientPromise;
     const db = client.db();
-    const summary = await SummaryModel.findById(db, params.id);
+    const summary = await SummaryModel.findById(db, context.params.id);
     
     if (!summary) {
       return NextResponse.json(
@@ -29,15 +29,15 @@ export async function GET(
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function DELETE(
-  request: Request,
-  context: { params: { id: string } }
+  request: NextRequest,
+  context: any // eslint-disable-line @typescript-eslint/no-explicit-any
 ) {
   try {
-    const params = await context.params;
     const client = await clientPromise;
     const db = client.db();
-    const success = await SummaryModel.delete(db, params.id);
+    const success = await SummaryModel.delete(db, context.params.id);
     
     if (!success) {
       return NextResponse.json(
@@ -56,16 +56,16 @@ export async function DELETE(
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function PATCH(
-  request: Request,
-  context: { params: { id: string } }
+  request: NextRequest,
+  context: any // eslint-disable-line @typescript-eslint/no-explicit-any
 ) {
   try {
-    const params = await context.params;
     const updates = await request.json();
     const client = await clientPromise;
     const db = client.db();
-    const updatedSummary = await SummaryModel.update(db, params.id, updates);
+    const updatedSummary = await SummaryModel.update(db, context.params.id, updates);
     
     if (!updatedSummary) {
       return NextResponse.json(

@@ -24,10 +24,7 @@ export interface SummaryState {
   setGenerating: (podcastId: string, isGenerating: boolean) => void;
   isGenerating: (podcastId: string) => boolean;
   
-  // Future MongoDB integration methods
-  syncWithDatabase: () => Promise<void>;
-  loadSummaryFromDB: (podcastId: string) => Promise<Summary | null>;
-  saveSummaryToDB: (summary: Summary) => Promise<void>;
+
   
   // Modal state
   openModalId: string | null;
@@ -145,17 +142,7 @@ export const useSummaryStore = create<SummaryState>()(
           const state = get();
           return state.generatingSummaries.has(podcastId);
         },
-        // Future MongoDB integration
-        syncWithDatabase: async () => {
-          // TODO: Implement when MongoDB is integrated
-        },
-        loadSummaryFromDB: async (podcastId) => {
-          // TODO: Implement MongoDB fetch
-          return null;
-        },
-        saveSummaryToDB: async (summary) => {
-          // TODO: Implement MongoDB save
-      },
+
       getAllSummaries: async () => {
         try {
           set({ isLoadingSummaries: true });

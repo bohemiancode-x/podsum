@@ -8,9 +8,10 @@ export async function GET(
   context: any // eslint-disable-line @typescript-eslint/no-explicit-any
 ) {
   try {
+    const params = await context.params;
     const client = await clientPromise;
     const db = client.db();
-    const summary = await SummaryModel.findById(db, context.params.id);
+    const summary = await SummaryModel.findById(db, params.id);
     
     if (!summary) {
       return NextResponse.json(
@@ -35,9 +36,10 @@ export async function DELETE(
   context: any // eslint-disable-line @typescript-eslint/no-explicit-any
 ) {
   try {
+    const params = await context.params;
     const client = await clientPromise;
     const db = client.db();
-    const success = await SummaryModel.delete(db, context.params.id);
+    const success = await SummaryModel.delete(db, params.id);
     
     if (!success) {
       return NextResponse.json(

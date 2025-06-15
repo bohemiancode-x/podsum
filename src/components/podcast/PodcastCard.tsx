@@ -1,13 +1,22 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
-import { Calendar, Clock, User, FileText } from 'lucide-react';
+import { Calendar, Clock, User, FileText, Trash2 } from 'lucide-react';
 import { Podcast, Summary } from '@/types';
 import { SummaryModal } from './SummaryModal';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { truncateText } from '@/lib/utils';
 import { useSummaryStore } from '@/store/summaryStore';
+import { toast } from 'sonner';
 
 interface PodcastCardProps {
   podcast: Podcast;
@@ -20,7 +29,9 @@ export const PodcastCard = ({
   summary,
   isLoading
 }: PodcastCardProps) => {
-  const { openModalId, setOpenModalId } = useSummaryStore();
+  const { openModalId, setOpenModalId, deleteSummary } = useSummaryStore();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const showSummaryModal = openModalId === podcast.id;
 
   const DESCRIPTION_LIMIT = 150;
@@ -32,6 +43,28 @@ export const PodcastCard = ({
 
   const handleCloseModal = () => {
     setOpenModalId(null);
+  };
+
+  const handleDeleteClick = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    try {
+      setIsDeleting(true);
+      await deleteSummary(podcast.id);
+      setShowDeleteConfirm(false);
+      toast.success('Summary deleted successfully');
+    } catch (error) {
+      console.error('Failed to delete summary:', error);
+      toast.error('Failed to delete summary. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteConfirm(false);
   };
 
   return (
@@ -88,15 +121,26 @@ export const PodcastCard = ({
           </div>
           <div className="mt-4 flex justify-end gap-2 pt-2">
             {summary ? (
-              <Button 
-                onClick={handleSummarizeClick}
-                variant="secondary"
-                className="inline-flex items-center gap-2"
-                data-testid="summarize-button"
-              >
-                <FileText className="h-4 w-4" />
-                View Summary
-              </Button>
+              <>
+                <Button 
+                  onClick={handleDeleteClick}
+                  variant="ghost"
+                  size="sm"
+                  className="inline-flex my-auto items-center gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  data-testid="delete-summary-button"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+                <Button 
+                  onClick={handleSummarizeClick}
+                  variant="secondary"
+                  className="inline-flex items-center gap-2"
+                  data-testid="summarize-button"
+                >
+                  <FileText className="h-4 w-4" />
+                  View Summary
+                </Button>
+              </>
             ) : (
               <Button 
                 onClick={handleSummarizeClick}
@@ -119,6 +163,34 @@ export const PodcastCard = ({
           existingSummary={summary}
         />
       )}
+      
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Summary</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete the summary for &ldquo;{podcast.title}&rdquo;? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              onClick={handleDeleteCancel}
+              variant="outline"
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteConfirm}
+              variant="destructive"
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
